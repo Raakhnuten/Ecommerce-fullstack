@@ -1,0 +1,161 @@
+CREATE DATABASE IF NOT EXISTS commercepro;
+USE commercepro;
+
+CREATE TABLE users (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('customer','admin') DEFAULT 'customer',
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE admins (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL UNIQUE,
+  permissions JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE categories (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
+  slug VARCHAR(120) NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE brands (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
+  slug VARCHAR(120) UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE products (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(180) NOT NULL,
+  slug VARCHAR(200) NOT NULL UNIQUE,
+  description TEXT,
+  price DECIMAL(10,2) NOT NULL,
+  stock INT DEFAULT 0,
+  status ENUM('active','draft','archived') DEFAULT 'active',
+  category_id BIGINT,
+  brand_id BIGINT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+  FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE SET NULL
+);
+
+CREATE TABLE product_images (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  product_id BIGINT NOT NULL,
+  image_url VARCHAR(500) NOT NULL,
+  is_primary TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE carts (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE cart_items (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  cart_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  quantity INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_cart_product (cart_id, product_id),
+  FOREIGN KEY (cart_id) REFERENCES carts(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE wishlists (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_user_product_wishlist (user_id, product_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE TABLE addresses (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  line1 VARCHAR(180) NOT NULL,
+  line2 VARCHAR(180),
+  city VARCHAR(80) NOT NULL,
+  state VARCHAR(80) NOT NULL,
+  country VARCHAR(80) NOT NULL,
+  postal_code VARCHAR(20) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE coupons (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  code VARCHAR(40) NOT NULL UNIQUE,
+  discount_percent DECIMAL(5,2) NOT NULL,
+  min_order_amount DECIMAL(10,2) DEFAULT 0,
+  expires_at DATETIME,
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE orders (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  address_id BIGINT,
+  subtotal DECIMAL(10,2) NOT NULL,
+  discount DECIMAL(10,2) DEFAULT 0,
+  total DECIMAL(10,2) NOT NULL,
+  status ENUM('pending','processing','shipped','delivered','cancelled') DEFAULT 'pending',
+  payment_status ENUM('pending','paid','failed','refunded') DEFAULT 'pending',
+  tracking_number VARCHAR(80),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (address_id) REFERENCES addresses(id) ON DELETE SET NULL
+);
+
+CREATE TABLE order_items (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  order_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  quantity INT NOT NULL,
+  unit_price DECIMAL(10,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
+CREATE TABLE payments (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  order_id BIGINT NOT NULL,
+  method VARCHAR(40) NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  status ENUM('initiated','authorized','captured','failed','refunded') DEFAULT 'initiated',
+  transaction_ref VARCHAR(120),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
+
+CREATE TABLE reviews (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NOT NULL,
+  product_id BIGINT NOT NULL,
+  rating TINYINT NOT NULL,
+  comment TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_user_product_review (user_id, product_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
